@@ -1,0 +1,25 @@
+name: BrudilnikIOS
+options:
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+
+targets:
+  BrudilnikIOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: BrudilnikIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.brudilnik
+        INFOPLIST_FILE: BrudilnikIOS/Info.plist
+    info:
+      path: BrudilnikIOS/Info.plist
+      properties:
+        CFBundleDisplayName: Brudilnik
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
