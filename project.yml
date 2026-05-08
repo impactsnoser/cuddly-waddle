@@ -11,13 +11,15 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: BrudilnikIOS
+      - path: .
+        excludes:
+          - .github
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.brudilnik
-        INFOPLIST_FILE: BrudilnikIOS/Info.plist
+        INFOPLIST_FILE: Info.plist
     info:
-      path: BrudilnikIOS/Info.plist
+      path: Info.plist
       properties:
         CFBundleDisplayName: Brudilnik
         UILaunchScreen: {}
