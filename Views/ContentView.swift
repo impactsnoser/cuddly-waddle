@@ -1,90 +1,359 @@
 import SwiftUI
 
+// MARK: - Тема
+
+private enum AlarmTheme {
+    static let accent = Color(red: 1, green: 0.58, blue: 0.2)
+    static let accentSoft = Color(red: 1, green: 0.72, blue: 0.45)
+
+    static let bgTop = Color(red: 0.07, green: 0.06, blue: 0.14)
+    static let bgBottom = Color(red: 0.04, green: 0.08, blue: 0.18)
+
+    static let cardFill = Color.white.opacity(0.06)
+    static let cardStroke = Color.white.opacity(0.12)
+}
+
+// MARK: - Главный экран
+
 struct ContentView: View {
     @EnvironmentObject private var viewModel: AlarmListViewModel
     @State private var showingAddSheet = false
 
     var body: some View {
         NavigationStack {
-            List {
-                if viewModel.alarms.isEmpty {
-                    Text("No alarms yet")
-                        .foregroundStyle(.secondary)
-                }
+            ZStack {
+                backgroundGradient
+                    .ignoresSafeArea()
 
-                ForEach(viewModel.alarms) { alarm in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(alarm.timeLabel)
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                            Text(alarm.title)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { alarm.isEnabled },
-                            set: { viewModel.setEnabled($0, for: alarm.id) }
-                        ))
-                        .labelsHidden()
+                List {
+                    if viewModel.alarms.isEmpty {
+                        emptyState
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
-                    .padding(.vertical, 4)
+
+                    ForEach(viewModel.alarms) { alarm in
+                        AlarmRowCard(
+                            alarm: alarm,
+                            isOn: Binding(
+                                get: { alarm.isEnabled },
+                                set: { viewModel.setEnabled($0, for: alarm.id) }
+                            )
+                        )
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    }
+                    .onDelete(perform: viewModel.deleteAlarm)
                 }
-                .onDelete(perform: viewModel.deleteAlarm)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Brudilnik")
+            .navigationTitle("Будильник")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingAddSheet = true
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(AlarmTheme.accent, Color.white.opacity(0.9))
                     }
+                    .accessibilityLabel("Добавить будильник")
                 }
             }
+            .tint(AlarmTheme.accent)
             .sheet(isPresented: $showingAddSheet) {
                 AddAlarmView { hour, minute, title, repeatsDaily in
                     viewModel.addAlarm(hour: hour, minute: minute, title: title, repeatsDaily: repeatsDaily)
                 }
             }
         }
+        .preferredColorScheme(.dark)
+    }
+
+    private var backgroundGradient: some View {
+        ZStack {
+            LinearGradient(
+                colors: [AlarmTheme.bgTop, AlarmTheme.bgBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [AlarmTheme.accent.opacity(0.18), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
+                .offset(x: 120, y: -220)
+                .blur(radius: 40)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.purple.opacity(0.15), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .offset(x: -140, y: 280)
+                .blur(radius: 50)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Spacer(minLength: 40)
+
+            ZStack {
+                Circle()
+                    .fill(AlarmTheme.cardFill)
+                    .frame(width: 120, height: 120)
+                    .overlay(
+                        Circle()
+                            .stroke(AlarmTheme.cardStroke, lineWidth: 1)
+                    )
+
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 48, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [AlarmTheme.accentSoft, AlarmTheme.accent],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+
+            VStack(spacing: 8) {
+                Text("Пока тихо")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text("Нажми + и задай время —\nразбудим аккуратно.")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            Spacer(minLength: 80)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 32)
     }
 }
+
+// MARK: - Карточка будильника
+
+private struct AlarmRowCard: View {
+    let alarm: Alarm
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(alarm.timeLabel)
+                    .font(.system(size: 34, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(isOn ? .white : .white.opacity(0.45))
+
+                Text(alarm.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(1)
+
+                if alarm.repeatsDaily {
+                    HStack(spacing: 4) {
+                        Image(systemName: "repeat")
+                            .font(.caption2.weight(.bold))
+                        Text("каждый день")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(AlarmTheme.accentSoft.opacity(0.95))
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(AlarmTheme.accent)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AlarmTheme.cardFill)
+                .background {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    AlarmTheme.cardStroke,
+                                    AlarmTheme.accent.opacity(isOn ? 0.25 : 0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+        }
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+    }
+}
+
+// MARK: - Добавление
 
 private struct AddAlarmView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedDate = Date()
-    @State private var title = "Brudilnik"
+    @State private var title = "Будильник"
     @State private var repeatsDaily = true
 
     let onSave: (Int, Int, String, Bool) -> Void
 
     var body: some View {
         NavigationStack {
-            Form {
-                DatePicker("Time", selection: $selectedDate, displayedComponents: [.hourAndMinute])
-                TextField("Title", text: $title)
-                Toggle("Repeat daily", isOn: $repeatsDaily)
+            ZStack {
+                LinearGradient(
+                    colors: [AlarmTheme.bgTop, AlarmTheme.bgBottom],
+                    startPoint: .top,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Время")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.55))
+
+                            DatePicker(
+                                "",
+                                selection: $selectedDate,
+                                displayedComponents: [.hourAndMinute]
+                            )
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .environment(\.locale, Locale(identifier: "ru_RU"))
+                        }
+                        .padding(20)
+                        .background(cardBackground)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Название")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.55))
+
+                            TextField("", text: $title, prompt: Text("Например: Подъём").foregroundStyle(.white.opacity(0.35)))
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(Color.white.opacity(0.08))
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(AlarmTheme.cardStroke, lineWidth: 1)
+                                }
+                                .foregroundStyle(.white)
+                        }
+                        .padding(20)
+                        .background(cardBackground)
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Повтор каждый день")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                Text("Один и тот же будильник на все дни")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.45))
+                            }
+                            Spacer()
+                            Toggle("", isOn: $repeatsDaily)
+                                .labelsHidden()
+                                .tint(AlarmTheme.accent)
+                        }
+                        .padding(20)
+                        .background(cardBackground)
+
+                        Button {
+                            let components = Calendar.current.dateComponents([.hour, .minute], from: selectedDate)
+                            let hour = components.hour ?? 7
+                            let minute = components.minute ?? 0
+                            let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                            onSave(hour, minute, finalTitle.isEmpty ? "Будильник" : finalTitle, repeatsDaily)
+                            dismiss()
+                        } label: {
+                            Text("Сохранить")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [AlarmTheme.accentSoft, AlarmTheme.accent],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                }
+                                .foregroundStyle(.black.opacity(0.85))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 32)
+                }
             }
-            .navigationTitle("New alarm")
+            .navigationTitle("Новый будильник")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
+                    Button("Отмена") {
                         dismiss()
                     }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        let components = Calendar.current.dateComponents([.hour, .minute], from: selectedDate)
-                        let hour = components.hour ?? 7
-                        let minute = components.minute ?? 0
-                        onSave(hour, minute, title.isEmpty ? "Brudilnik" : title, repeatsDaily)
-                        dismiss()
-                    }
+                    .foregroundStyle(.white.opacity(0.7))
                 }
             }
+            .tint(AlarmTheme.accent)
         }
+        .preferredColorScheme(.dark)
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(AlarmTheme.cardFill)
+            .background {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AlarmTheme.cardStroke, lineWidth: 1)
+            }
     }
 }
-
