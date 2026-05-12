@@ -5,15 +5,16 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-
 targets:
   BrudilnikIOS:
     type: application
     platform: iOS
     sources:
-      - path: .
-        excludes:
-          - .github
+      - path: Models
+      - path: Services
+      - path: ViewModels
+      - path: Views
+      - path: BrudilnikIOSApp.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.brudilnik
