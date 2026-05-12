@@ -7,6 +7,8 @@ struct Alarm: Identifiable, Codable, Equatable {
     var title: String
     var isEnabled: Bool
     var repeatsDaily: Bool
+    /// Имя файла в `Library/Sounds` (wav/caf). `nil` — системный звук уведомления.
+    var soundFileName: String?
 
     init(
         id: String = UUID().uuidString,
@@ -14,7 +16,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         minute: Int,
         title: String = "Brudilnik",
         isEnabled: Bool = true,
-        repeatsDaily: Bool = true
+        repeatsDaily: Bool = true,
+        soundFileName: String? = nil
     ) {
         self.id = id
         self.hour = hour
@@ -22,6 +25,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.title = title
         self.isEnabled = isEnabled
         self.repeatsDaily = repeatsDaily
+        self.soundFileName = soundFileName
     }
 
     var timeLabel: String {
