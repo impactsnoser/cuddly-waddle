@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Тема
 
@@ -67,8 +68,14 @@ struct ContentView: View {
             )
             .tint(AlarmTheme.accent)
             .sheet(isPresented: $showingAddSheet) {
-                AddAlarmView { hour, minute, title, repeatsDaily in
-                    viewModel.addAlarm(hour: hour, minute: minute, title: title, repeatsDaily: repeatsDaily)
+                AddAlarmView { hour, minute, title, repeatsDaily, soundFileName in
+                    viewModel.addAlarm(
+                        hour: hour,
+                        minute: minute,
+                        title: title,
+                        repeatsDaily: repeatsDaily,
+                        soundFileName: soundFileName
+                    )
                 }
             }
         }
@@ -180,6 +187,16 @@ private struct AlarmRowCard: View {
                     }
                     .foregroundStyle(AlarmTheme.accentSoft.opacity(0.95))
                 }
+
+                if let sound = alarm.soundFileName, AlarmSoundStore.fileExists(sound) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform")
+                            .font(.caption2.weight(.bold))
+                        Text("своя мелодия")
+                            .font(.caption.weight(.medium))
+                    }
+                    .foregroundStyle(.white.opacity(0.4))
+                }
             }
 
             Spacer(minLength: 8)
@@ -225,8 +242,20 @@ private struct AddAlarmView: View {
     @State private var selectedDate = Date()
     @State private var title = "Будильник"
     @State private var repeatsDaily = true
+    @State private var selectedSoundFileName: String?
+    @State private var importedSounds: [(filename: String, label: String)] = []
+    @State private var showSoundImporter = false
+    @State private var importErrorMessage: String?
 
-    let onSave: (Int, Int, String, Bool) -> Void
+    let onSave: (Int, Int, String, Bool, String?) -> Void
+
+    private static var audioImportTypes: [UTType] {
+        var types: [UTType] = [.mp3, .mpeg4Audio, .wav, .aiff, .audio]
+        if let caf = UTType(filenameExtension: "caf") {
+            types.append(caf)
+        }
+        return types
+    }
 
     var body: some View {
         ZStack {
@@ -299,6 +328,54 @@ private struct AddAlarmView: View {
                         .padding(20)
                         .background(cardBackground)
 
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Звук")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.55))
+
+                            soundChoiceRow(
+                                label: "Системный звук",
+                                isSelected: selectedSoundFileName == nil
+                            ) {
+                                selectedSoundFileName = nil
+                            }
+
+                            ForEach(importedSounds, id: \.filename) { item in
+                                soundChoiceRow(
+                                    label: item.label,
+                                    isSelected: selectedSoundFileName == item.filename
+                                ) {
+                                    selectedSoundFileName = item.filename
+                                }
+                            }
+
+                            Button {
+                                showSoundImporter = true
+                            } label: {
+                                Label("Загрузить файл (MP3, M4A, WAV…)", systemImage: "square.and.arrow.down")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(Color.white.opacity(0.1))
+                                    )
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(AlarmTheme.cardStroke, lineWidth: 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(AlarmTheme.accentSoft)
+
+                            Text("Для уведомлений iOS берёт до ~30 секунд; длиннее — обрежется. MP3 конвертируется автоматически.")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.4))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(20)
+                        .background(cardBackground)
+
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Повтор каждый день")
@@ -321,7 +398,8 @@ private struct AddAlarmView: View {
                             let hour = components.hour ?? 7
                             let minute = components.minute ?? 0
                             let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                            onSave(hour, minute, finalTitle.isEmpty ? "Будильник" : finalTitle, repeatsDaily)
+                            let sound = selectedSoundFileName.flatMap { AlarmSoundStore.fileExists($0) ? $0 : nil }
+                            onSave(hour, minute, finalTitle.isEmpty ? "Будильник" : finalTitle, repeatsDaily, sound)
                             dismiss()
                         } label: {
                             Text("Сохранить")
@@ -350,6 +428,62 @@ private struct AddAlarmView: View {
         }
         .tint(AlarmTheme.accent)
         .preferredColorScheme(.dark)
+        .onAppear {
+            importedSounds = AlarmSoundStore.listImportedSounds()
+        }
+        .fileImporter(
+            isPresented: $showSoundImporter,
+            allowedContentTypes: Self.audioImportTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                do {
+                    let name = try AlarmSoundStore.importAudioFile(from: url)
+                    importedSounds = AlarmSoundStore.listImportedSounds()
+                    selectedSoundFileName = name
+                } catch {
+                    importErrorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                importErrorMessage = error.localizedDescription
+            }
+        }
+        .alert("Не удалось загрузить звук", isPresented: Binding(
+            get: { importErrorMessage != nil },
+            set: { if !$0 { importErrorMessage = nil } }
+        )) {
+            Button("ОК", role: .cancel) { importErrorMessage = nil }
+        } message: {
+            Text(importErrorMessage ?? "")
+        }
+    }
+
+    private func soundChoiceRow(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label)
+                    .font(.body)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.leading)
+                Spacer()
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? AlarmTheme.accent : .white.opacity(0.35))
+                    .imageScale(.large)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.05))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isSelected ? AlarmTheme.accent.opacity(0.45) : AlarmTheme.cardStroke, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var cardBackground: some View {
