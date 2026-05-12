@@ -7,11 +7,11 @@ final class AlarmListViewModel: ObservableObject {
 
     init() {
         load()
-        rescheduleEnabledAlarms()
+        AlarmManager.shared.syncSchedules(with: alarms)
     }
 
-    func addAlarm(hour: Int, minute: Int, title: String, repeatsDaily: Bool) {
-        let alarm = Alarm(hour: hour, minute: minute, title: title, repeatsDaily: repeatsDaily)
+    func addAlarm(hour: Int, minute: Int, title: String, repeatsDaily: Bool, soundFileName: String? = nil) {
+        let alarm = Alarm(hour: hour, minute: minute, title: title, repeatsDaily: repeatsDaily, soundFileName: soundFileName)
         alarms.append(alarm)
         AlarmManager.shared.schedule(alarm)
         save()
@@ -36,10 +36,6 @@ final class AlarmListViewModel: ObservableObject {
         }
         alarms.remove(atOffsets: offsets)
         save()
-    }
-
-    private func rescheduleEnabledAlarms() {
-        alarms.filter { $0.isEnabled }.forEach { AlarmManager.shared.schedule($0) }
     }
 
     private func save() {
