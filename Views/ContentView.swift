@@ -331,14 +331,14 @@ private struct AddAlarmView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Отмена") {
+            .toolbar(content: {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Отмена", role: .cancel) {
                         dismiss()
                     }
                     .foregroundStyle(.white.opacity(0.7))
                 }
-            }
+            })
             .tint(AlarmTheme.accent)
         }
         .preferredColorScheme(.dark)
