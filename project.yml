@@ -17,7 +17,7 @@ targets:
       - path: BrudilnikIOSApp.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.brudilnik
+        PRODUCT_BUNDLE_IDENTIFIER: com.impact.brudilnik
         INFOPLIST_FILE: Info.plist
     info:
       path: Info.plist
